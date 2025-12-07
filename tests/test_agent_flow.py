@@ -9,8 +9,10 @@ async def test_run_agent_flow():
     mock_graph = MagicMock()
     # run_agent uses asyncio.to_thread(graph.invoke, ...)
     # The return value of invoke is a dict with "messages"
+    # LangChain v1: messages use .text property instead of .text() method
     mock_message = MagicMock()
-    mock_message.content = "Agent response"
+    mock_message.text = "Agent response"  # Use .text property for LangChain v1
+    mock_message.content = "Agent response"  # Keep .content as fallback
     mock_response = {"messages": [mock_message]}
     
     mock_graph.invoke.return_value = mock_response

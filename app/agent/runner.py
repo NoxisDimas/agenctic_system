@@ -1,5 +1,6 @@
 import logging
 from typing import Dict, Any, Optional
+from langchain_core.messages import HumanMessage
 from app.channels.core.models import InternalMessage, InternalResponse
 
 logger = logging.getLogger(__name__)
@@ -13,9 +14,10 @@ async def run_agent(
     Run the agent graph with the given message.
     """
     try:
-        # LangGraph inputs
-        # The prebuilt react agent expects "messages" key generally
-        inputs = {"messages": [("user", message.text)]}
+        # LangChain v1: Use proper message objects instead of tuples
+        # The agent expects "messages" key with proper message objects
+        human_message = HumanMessage(content=message.text)
+        inputs = {"messages": [human_message]}
         
         # Config for checkpointing
         # session_context usually contains user_id/thread_id
@@ -29,12 +31,6 @@ async def run_agent(
         # For remote/sync checkpointer, invoke is synchronous usually unless using async checkpointer
         # Since we use PostgresSaver (sync), we use invoke.
         
-        # If running in async context but checkpointer is sync, we might need to offload
-        # result = await asyncio.to_thread(graph.invoke, inputs, config)
-        
-        # Assuming we might want async execution eventually, but let's stick to simplest path first.
-        # PostgresSaver from langgraph-checkpoint-postgres 1.0 is sync.
-        
         # However, for async fastapi, blocking the loop is bad.
         # Let's wrap in to_thread since `graph.invoke` with sync checkpointer is blocking.
         import asyncio
@@ -43,7 +39,10 @@ async def run_agent(
         # Result state contains 'messages'
         messages = result.get("messages", [])
         last_message = messages[-1] if messages else None
-        output_text = last_message.content if last_message else "No response generated."
+        # In LangChain v1, use .text property instead of .text() method
+        output_text = last_message.text if last_message and hasattr(last_message, 'text') else (
+            last_message.content if last_message else "No response generated."
+        )
         
         return InternalResponse(
             text=str(output_text),

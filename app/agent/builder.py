@@ -1,15 +1,12 @@
 import logging
-from typing import List, Any, Optional
-from langchain_core.prompts import ChatPromptTemplate
+from typing import List, Optional
 from langchain_core.tools import BaseTool
-from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent
 from langgraph.checkpoint.postgres import PostgresSaver
-from psycopg_pool import ConnectionPool
 
 from app.llm.manager import LLMManager
 from app.agent.tools import ToolWrapper
 from app.agent.config import AgentConfig
-from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +22,7 @@ def build_graph_agent(
     checkpointer: Optional[PostgresSaver] = None
 ):
     """
-    Builds and returns a LangGraph ReAct agent.
+    Builds and returns a LangGraph ReAct agent using LangChain v1.
     """
     # 1. Get LLM
     llm = llm_manager.get_llm(temperature=0)
@@ -33,14 +30,14 @@ def build_graph_agent(
     # 2. Convert tools
     lc_tools: List[BaseTool] = [t.wrap_tool() for t in tools]
     
-    # 3. Create ReAct Agent (LangGraph prebuilt)
-    # The system prompt is passed via state_modifier or messages.
-    # create_react_agent handles the graph construction.
+    # 3. Create ReAct Agent (LangChain v1)
+    # The system_prompt parameter replaces the old prompt parameter
+    # create_agent handles the graph construction.
     
-    graph = create_react_agent(
+    graph = create_agent(
         model=llm,
         tools=lc_tools,
-        prompt=config.system_prompt,
+        system_prompt=config.system_prompt,
         checkpointer=checkpointer
     )
     
