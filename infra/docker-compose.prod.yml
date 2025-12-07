@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  app:
+    restart: always
+    environment:
+      - ENVIRONMENT=production
+      # In production, we assume reverse proxy handles HTTPS
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 1G
+        reservations:
+          cpus: '0.10'
+          memory: 256M
+
+  streamlit:
+    restart: always
+    command: streamlit run app/ui/streamlit_app.py --server.address 0.0.0.0 --server.headless true --browser.gatherUsageStats false
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+
+  qdrant:
+    restart: always
+    # Persistence is handled by volumes in base file
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  neo4j:
+    restart: always
+    environment:
+      # NEVER use default password in production!
+      # Ensure NEO4J_AUTH is set securely in your CI/CD or secrets manager
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  lightrag:
+    restart: always
+    environment:
+      # Production optimizations
+      - LOG_LEVEL=WARNING
+      # Use Groq/OpenAI in production for speed unless you have massive GPU server
+      - LLM_BINDING=openai
+      - LLM_BINDING_HOST=https://api.groq.com/openai/v1
+      - LLM_MODEL=${GROQ_MODEL:-llama-3.3-70b-versatile}
+      - LLM_BINDING_API_KEY=${GROQ_API_KEY}
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+  postgres:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  ollama:
+    # Optional in production if using Groq for everything (both LLM & Embedding)
+    # If using for Embeddings, keep it running
+    restart: always
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          # Reserve some RAM if you depend on it
+          memory: 4G
+
+# Production-specific networks or volumes can be added here
+networks:
+  default:
+    driver: bridge
